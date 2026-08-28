@@ -93,7 +93,9 @@ public static class DocumentBuilder
             FontSize = options.FontSize,
             LineHeight = options.FontSize * options.LineSpacing,
             LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
-            PagePadding = new Thickness(options.MarginInches * 96.0 / scale),
+            PagePadding = new Thickness(
+                options.PagePadding.Left / scale, options.PagePadding.Top / scale,
+                options.PagePadding.Right / scale, options.PagePadding.Bottom / scale),
             ColumnWidth = double.MaxValue,
             ColumnGap = 0,
             TextAlignment = options.Justify ? TextAlignment.Justify : TextAlignment.Left,
@@ -138,3 +140,4 @@ public static class DocumentBuilder
         return book.Chapters.Skip(from - 1).Take(to - from + 1).ToList();
     }
 }
+

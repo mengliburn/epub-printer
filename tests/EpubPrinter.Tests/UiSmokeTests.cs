@@ -197,7 +197,7 @@ public sealed class UiSmokeTests : IDisposable
         var epub = SampleEpubFactory.CreateEpub3(PathFor("duplexwin.epub"), chapterCount: 4);
         using var book = EpubReader.Open(epub);
 
-        var window = new PrintWindow(book, book.Chapters, new PrintOptions(), "Header", "job");
+        var window = new PrintWindow(book, book.Chapters, new PrintOptions { PagesPerSheet = 1 }, "Header", "job");
         window.Show();
 
         var summary = (TextBlock)window.FindName("SummaryText")!;
@@ -312,6 +312,7 @@ public sealed class UiSmokeTests : IDisposable
         }
     }
 }
+
 
 
 

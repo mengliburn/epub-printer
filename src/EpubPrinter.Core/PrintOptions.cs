@@ -29,6 +29,12 @@ public enum DuplexMode
 /// <summary>User adjustable layout settings used when building the printable document.</summary>
 public sealed class PrintOptions : INotifyPropertyChanged
 {
+    /// <summary>The tightest margin offered; most printers cannot print closer to the edge.</summary>
+    public const double MinimumMarginInches = 0.25;
+
+    /// <summary>The widest margin offered.</summary>
+    public const double MaximumMarginInches = 2.0;
+
     private string _fontFamily = "Georgia";
     private double _fontSize = 12;
     private double _lineSpacing = 1.3;
@@ -39,16 +45,16 @@ public sealed class PrintOptions : INotifyPropertyChanged
     private bool _includeChapterTitles = true;
     private bool _startChapterOnNewPage = true;
     private bool _includeTitlePage;
-    private bool _showPageNumbers = true;
+    private bool _showPageNumbers;
     private bool _showRunningHeader = true;
-    private double _marginInches = 0.75;
+    private double _marginInches = MinimumMarginInches;
     private PaperSize _paperSize = PaperSize.Letter;
     private double _maxImageWidth = 450;
     private bool _highQualityLineBreaking;
     private int _scalePercent = 100;
     private bool _landscape;
-    private DuplexMode _duplex = DuplexMode.OneSided;
-    private int _pagesPerSheet = 1;
+    private DuplexMode _duplex = DuplexMode.ShortEdge;
+    private int _pagesPerSheet = 2;
 
     public static PrintOptions Default => new();
 
@@ -128,7 +134,7 @@ public sealed class PrintOptions : INotifyPropertyChanged
     public double MarginInches
     {
         get => _marginInches;
-        set => Set(ref _marginInches, Math.Clamp(value, 0.1, 3.0));
+        set => Set(ref _marginInches, Math.Clamp(value, MinimumMarginInches, MaximumMarginInches));
     }
 
     public PaperSize PaperSize
@@ -198,7 +204,31 @@ public sealed class PrintOptions : INotifyPropertyChanged
         });
     }
 
-    public Thickness PagePadding => new(MarginInches * 96.0);
+    /// <summary>Point size used for the running header and the page number line.</summary>
+    public double HeaderFontSize => Math.Max(8, FontSize * 0.75);
+
+    /// <summary>
+    /// Height reserved above or below the text for a header or page numbers. Nothing is
+    /// reserved when they are switched off, so the text uses the whole area between margins.
+    /// </summary>
+    public double DecorationBand => Math.Ceiling(HeaderFontSize * 2.0);
+
+    /// <summary>
+    /// Padding of the printed page in device independent units: the margin on every side,
+    /// plus room for whichever decorations are enabled.
+    /// </summary>
+    public Thickness PagePadding
+    {
+        get
+        {
+            var margin = MarginInches * 96.0;
+            return new Thickness(
+                margin,
+                margin + (ShowRunningHeader ? DecorationBand : 0),
+                margin,
+                margin + (ShowPageNumbers ? DecorationBand : 0));
+        }
+    }
 
     public Size PageSizeDiu
     {
@@ -246,10 +276,34 @@ public sealed class PrintOptions : INotifyPropertyChanged
         if (EqualityComparer<T>.Default.Equals(field, value)) return;
         field = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        if (name is nameof(MarginInches)) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PagePadding)));
+        if (name is nameof(MarginInches) or nameof(ShowPageNumbers) or nameof(ShowRunningHeader) or nameof(FontSize))
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PagePadding)));
         if (name is nameof(PaperSize) or nameof(Landscape)) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PageSizeDiu)));
         if (name is nameof(ScalePercent)) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Scale)));
     }
+
+    /// <summary>
+    /// Bumped when a default changes. Settings files written by an older version keep the
+    /// user's own choices but adopt the new defaults for the keys listed in
+    /// <see cref="DefaultsChangedIn2"/>.
+    /// </summary>
+    private const int CurrentVersion = 3;
+
+    private static readonly HashSet<string> DefaultsChangedIn2 = new(StringComparer.OrdinalIgnoreCase)
+    {
+        nameof(ShowPageNumbers),
+        nameof(PagesPerSheet),
+        nameof(Duplex)
+    };
+
+    private static readonly HashSet<string> DefaultsChangedIn3 = new(StringComparer.OrdinalIgnoreCase)
+    {
+        nameof(MarginInches)
+    };
+
+    private static bool DefaultReplaces(string key, int fileVersion) =>
+        (fileVersion < 2 && DefaultsChangedIn2.Contains(key)) ||
+        (fileVersion < 3 && DefaultsChangedIn3.Contains(key));
 
     /// <summary>Persists the settings as a small ini-like file next to the application data.</summary>
     public void Save(string path)
@@ -259,6 +313,7 @@ public sealed class PrintOptions : INotifyPropertyChanged
 
         var lines = new[]
         {
+            $"Version={CurrentVersion}",
             $"FontFamily={FontFamily}",
             $"FontSize={FontSize}",
             $"LineSpacing={LineSpacing}",
@@ -289,12 +344,29 @@ public sealed class PrintOptions : INotifyPropertyChanged
 
         try
         {
+            var stored = new List<(string Key, string Value)>();
+            var version = 1;
+
             foreach (var line in File.ReadAllLines(path))
             {
                 var separator = line.IndexOf('=');
                 if (separator <= 0) continue;
                 var key = line[..separator].Trim();
                 var value = line[(separator + 1)..].Trim();
+
+                if (key.Equals("Version", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (int.TryParse(value, out var parsed)) version = parsed;
+                    continue;
+                }
+
+                stored.Add((key, value));
+            }
+
+            foreach (var (key, value) in stored)
+            {
+                // Older files kept the previous defaults for these; take the new ones instead.
+                if (DefaultReplaces(key, version)) continue;
 
                 switch (key)
                 {

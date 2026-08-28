@@ -44,6 +44,7 @@ public partial class PrintWindow : Window
     private bool _ready;
     private bool _syncing;
     private bool _busy;
+    private volatile bool _closed;
     private PrintService.PageCounts _counts;
     private List<DuplexMode> _duplexModes = new() { DuplexMode.OneSided };
 
@@ -102,6 +103,9 @@ public partial class PrintWindow : Window
         PagesPerSheetBox.SelectedItem = PagesPerSheetOptions.Contains(_options.PagesPerSheet)
             ? _options.PagesPerSheet
             : 1;
+
+        PageNumbersCheck.IsChecked = _options.ShowPageNumbers;
+        RunningHeaderCheck.IsChecked = _options.ShowRunningHeader;
 
         UpdateDuplexOptions();
 
@@ -351,6 +355,8 @@ public partial class PrintWindow : Window
 
         if (PaperBox.SelectedItem is PaperSize paper) _options.PaperSize = paper;
         _options.Landscape = LandscapeRadio.IsChecked == true;
+        _options.ShowPageNumbers = PageNumbersCheck.IsChecked == true;
+        _options.ShowRunningHeader = RunningHeaderCheck.IsChecked == true;
 
         if (DuplexBox.SelectedIndex >= 0 && DuplexBox.SelectedIndex < _duplexModes.Count)
             _options.Duplex = _duplexModes[DuplexBox.SelectedIndex];
@@ -422,8 +428,17 @@ public partial class PrintWindow : Window
 
     private void Post(Action action)
     {
-        if (_ui is not null) _ui.Post(_ => action(), null);
-        else Dispatcher.BeginInvoke(action);
+        if (_closed) return;
+
+        try
+        {
+            if (_ui is not null) _ui.Post(_ => { if (!_closed) action(); }, null);
+            else Dispatcher.BeginInvoke(action);
+        }
+        catch (Exception)
+        {
+            // The window (or its dispatcher) is already gone; a late render has nowhere to go.
+        }
     }
 
     private static void TryDelete(string? path)
@@ -442,6 +457,7 @@ public partial class PrintWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
+        _closed = true;
         _debounce.Stop();
         Interlocked.Increment(ref _renderVersion);
         Viewer.Document = null;
@@ -451,6 +467,7 @@ public partial class PrintWindow : Window
         _previewPath = null;
     }
 }
+
 
 
 

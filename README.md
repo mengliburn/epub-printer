@@ -17,14 +17,20 @@ by chapter: either the whole book or a chapter range.
   copies, paper, orientation, **sides**, **pages per side**, **print scale** and margins on the
   left, the actual paginated pages on the right. The job goes straight to the selected queue.
 - **Double sided** - choose one sided, or double sided flipped on the long or the short edge.
-  Only the modes the selected printer reports are offered.
+  Only the modes the selected printer reports are offered. **Default: double sided, short edge.**
 - **Two (or more) pages per side** - 1, 2, 4, 6 or 9 document pages are composed onto each
   printed side by the application itself, so the preview and the XPS export show exactly the
-  packed sheets. Combined with double sided printing, 2 per side turns 280 pages into 70
-  sheets of paper.
+  packed sheets. **Default: 2 per side**, which with double sided printing turns 8 pages into
+  2 sheets of paper.
+- **Page numbers and a running header** - both optional, from the print window or the layout
+  options. **Page numbers are off by default.** Space is only reserved for the ones that are
+  switched on: turn the footer off and the text uses that room instead.
 - **Print scale** - 25-200%. Below 100% the text is laid out on a larger logical page and
   shrunk onto the sheet, so more words fit per page while margins stay put. Headers and page
   numbers keep their size.
+- **Margins** - 0.25 to 2 inches on every side, **defaulting to the tightest 0.25 in**. Nothing
+  is ever printed inside the margin, and there is a test that renders pages and measures the
+  ink to keep it that way.
 - **Live preview in the main window** - the same paginated document you will print.
 - **Save as XPS** - keep a copy of the selected chapters (or pick "Microsoft Print to PDF"
   in the print window to get a PDF).
@@ -118,6 +124,9 @@ That writes the multi-resolution `.ico` (16-256 px) plus `docs/icon.png` and a
   the paper size chosen in the options.
 - Pages per side is done by the application, not the driver, so it works on every printer and
   matches the preview. Double sided is a printer setting, so it needs printer support.
+- Settings are stored in `%APPDATA%\EpubPrinter\settings.ini` and carry a version. When a
+  default changes, files written by an older version keep your own choices and adopt only the
+  new defaults.
 - The page navigator under the main preview counts *preview* pages; the status bar shows the
   page count of the complete selection.
 - Books with unusual or heavily styled markup are rendered as close as WPF's flow layout

@@ -505,6 +505,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Options.Landscape = source.Landscape;
         Options.ScalePercent = source.ScalePercent;
         Options.MarginInches = source.MarginInches;
+        Options.Duplex = source.Duplex;
+        Options.PagesPerSheet = source.PagesPerSheet;
+        Options.ShowPageNumbers = source.ShowPageNumbers;
+        Options.ShowRunningHeader = source.ShowRunningHeader;
     }
 
     public void ShowPrintPreview() => Print();

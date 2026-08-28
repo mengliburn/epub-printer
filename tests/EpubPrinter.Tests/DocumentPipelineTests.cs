@@ -127,7 +127,7 @@ public sealed class DocumentPipelineTests : IDisposable
     public void Exports_the_selected_range_to_a_readable_xps_package()
     {
         using var book = EpubReader.Open(SampleEpubFactory.CreateEpub3(PathFor("xps.epub"), chapterCount: 5));
-        var options = new PrintOptions { PaperSize = PaperSize.Letter, ShowPageNumbers = true, ShowRunningHeader = true };
+        var options = new PrintOptions { PaperSize = PaperSize.Letter, ShowPageNumbers = true, ShowRunningHeader = true, PagesPerSheet = 1 };
         var selection = DocumentBuilder.SelectRange(book, 2, 3);
 
         var document = DocumentBuilder.Build(book, selection, options);
@@ -153,7 +153,7 @@ public sealed class DocumentPipelineTests : IDisposable
     public void Header_and_page_numbers_are_stamped_onto_every_page()
     {
         using var book = EpubReader.Open(SampleEpubFactory.CreateEpub3(PathFor("header.epub"), chapterCount: 2));
-        var options = new PrintOptions { ShowRunningHeader = true, ShowPageNumbers = true, PaperSize = PaperSize.A5 };
+        var options = new PrintOptions { ShowRunningHeader = true, ShowPageNumbers = true, PaperSize = PaperSize.A5, PagesPerSheet = 1 };
         var document = DocumentBuilder.Build(book, book.Chapters, options);
 
         var paginator = (HeaderFooterPaginator)PrintService.CreatePaginator(document, "Running Header", options, options.PageSizeDiu);
@@ -195,7 +195,7 @@ public sealed class DocumentPipelineTests : IDisposable
     public void Scaled_pages_keep_the_physical_sheet_size()
     {
         using var book = EpubReader.Open(SampleEpubFactory.CreateEpub3(PathFor("scalesize.epub"), chapterCount: 2));
-        var options = new PrintOptions { ScalePercent = 60, PaperSize = PaperSize.A4 };
+        var options = new PrintOptions { ScalePercent = 60, PaperSize = PaperSize.A4, PagesPerSheet = 1 };
         var document = DocumentBuilder.Build(book, book.Chapters, options);
 
         var paginator = (HeaderFooterPaginator)PrintService.CreatePaginator(document, "Header", options, options.PageSizeDiu);
@@ -400,5 +400,6 @@ public sealed class DocumentPipelineTests : IDisposable
         }
     }
 }
+
 
 

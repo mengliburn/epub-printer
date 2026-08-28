@@ -37,7 +37,7 @@ public sealed class HeaderFooterPaginator : DocumentPaginator
         _showHeader = options.ShowRunningHeader && !string.IsNullOrWhiteSpace(header);
         _showPageNumbers = options.ShowPageNumbers;
         _margin = options.MarginInches * 96.0;
-        _fontSize = Math.Max(8, options.FontSize * 0.75);
+        _fontSize = options.HeaderFontSize;
         _typeface = new Typeface("Segoe UI");
         _pixelsPerDip = pixelsPerDip <= 0 ? 1.0 : pixelsPerDip;
         _scale = options.Scale <= 0 ? 1.0 : options.Scale;
@@ -96,7 +96,8 @@ public sealed class HeaderFooterPaginator : DocumentPaginator
         using (var context = overlay.RenderOpen())
         {
             // Headers and footers are drawn on the sheet itself, so they keep their size
-            // whatever the content scale is.
+            // whatever the content scale is. Both sit centred in their margin band, which
+            // keeps the top and bottom of the page looking even.
             var width = _physicalPageSize.Width;
             var height = _physicalPageSize.Height;
 
@@ -106,7 +107,7 @@ public sealed class HeaderFooterPaginator : DocumentPaginator
                 text.MaxTextWidth = Math.Max(10, width - (_margin * 2));
                 text.MaxLineCount = 1;
                 text.Trimming = TextTrimming.CharacterEllipsis;
-                context.DrawText(text, new Point(_margin, Math.Max(4, _margin / 2 - _fontSize)));
+                context.DrawText(text, new Point(_margin, _margin));
             }
 
             if (_showPageNumbers)
@@ -117,7 +118,7 @@ public sealed class HeaderFooterPaginator : DocumentPaginator
                     : $"Page {pageNumber + 1}";
                 var text = Format(label);
                 var x = (width - text.Width) / 2;
-                var y = Math.Min(height - _fontSize - 4, height - _margin / 2);
+                var y = height - _margin - text.Height;
                 context.DrawText(text, new Point(Math.Max(0, x), Math.Max(0, y)));
             }
         }
@@ -127,6 +128,7 @@ public sealed class HeaderFooterPaginator : DocumentPaginator
         var box = new Rect(new Point(0, 0), _physicalPageSize);
         return new DocumentPage(container, _physicalPageSize, box, box);
     }
+
 
     private FormattedText Format(string text) => new(
         text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
@@ -145,11 +147,12 @@ public static class PrintService
         // (or blown up) onto the real sheet, so margins stay physically the same.
         var scale = options.Scale <= 0 ? 1.0 : options.Scale;
         var logical = new Size(pageSize.Width / scale, pageSize.Height / scale);
-        var padding = options.MarginInches * 96.0 / scale;
+        var padding = options.PagePadding;
 
         document.PageWidth = logical.Width;
         document.PageHeight = logical.Height;
-        document.PagePadding = new Thickness(padding);
+        document.PagePadding = new Thickness(
+            padding.Left / scale, padding.Top / scale, padding.Right / scale, padding.Bottom / scale);
         document.ColumnWidth = double.MaxValue;
 
         var inner = ((IDocumentPaginatorSource)document).DocumentPaginator;
@@ -358,5 +361,6 @@ public static class PrintService
         return modes;
     }
 }
+
 
 

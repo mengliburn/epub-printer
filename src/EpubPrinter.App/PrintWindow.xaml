@@ -66,6 +66,12 @@
                     <TextBlock Text="Smaller scale fits more text on each sheet."
                                Foreground="#777" TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11" />
 
+                    <TextBlock Text="On every page" FontWeight="SemiBold" Margin="0,14,0,4" />
+                    <CheckBox x:Name="PageNumbersCheck" Content="Page numbers" Margin="0,2"
+                              Checked="OnLayoutChanged" Unchecked="OnLayoutChanged" />
+                    <CheckBox x:Name="RunningHeaderCheck" Content="Book title header" Margin="0,2"
+                              Checked="OnLayoutChanged" Unchecked="OnLayoutChanged" />
+
                     <TextBlock Text="Margins" FontWeight="SemiBold" Margin="0,14,0,4" />
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -93,6 +99,7 @@
         </Grid>
     </Grid>
 </Window>
+
 
 
 
