@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E1F80BE7-58E7-40CE-B305-462327D30F47}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EpubPrinter.Core", "src\EpubPrinter.Core\EpubPrinter.Core.csproj", "{4E72A266-FB4B-47E2-B05F-9D2C554E035E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EpubPrinter.App", "src\EpubPrinter.App\EpubPrinter.App.csproj", "{386F1248-D95C-4E0E-9AD4-A0CE0C4E906F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{1652CEFA-8155-4588-8077-1399881C64AB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EpubPrinter.Tests", "tests\EpubPrinter.Tests\EpubPrinter.Tests.csproj", "{27D053FF-6C4B-4130-8EE4-5E2E9F8E80EE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{45FCA4C7-82CB-47F1-926C-1B77484749C0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IconGenerator", "tools\IconGenerator\IconGenerator.csproj", "{3BB46BC9-510D-45AB-85E4-AE62DACA46D3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4E72A266-FB4B-47E2-B05F-9D2C554E035E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4E72A266-FB4B-47E2-B05F-9D2C554E035E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4E72A266-FB4B-47E2-B05F-9D2C554E035E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4E72A266-FB4B-47E2-B05F-9D2C554E035E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{386F1248-D95C-4E0E-9AD4-A0CE0C4E906F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{386F1248-D95C-4E0E-9AD4-A0CE0C4E906F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{386F1248-D95C-4E0E-9AD4-A0CE0C4E906F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{386F1248-D95C-4E0E-9AD4-A0CE0C4E906F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{27D053FF-6C4B-4130-8EE4-5E2E9F8E80EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{27D053FF-6C4B-4130-8EE4-5E2E9F8E80EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{27D053FF-6C4B-4130-8EE4-5E2E9F8E80EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{27D053FF-6C4B-4130-8EE4-5E2E9F8E80EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3BB46BC9-510D-45AB-85E4-AE62DACA46D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3BB46BC9-510D-45AB-85E4-AE62DACA46D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3BB46BC9-510D-45AB-85E4-AE62DACA46D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3BB46BC9-510D-45AB-85E4-AE62DACA46D3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4E72A266-FB4B-47E2-B05F-9D2C554E035E} = {E1F80BE7-58E7-40CE-B305-462327D30F47}
+		{386F1248-D95C-4E0E-9AD4-A0CE0C4E906F} = {E1F80BE7-58E7-40CE-B305-462327D30F47}
+		{27D053FF-6C4B-4130-8EE4-5E2E9F8E80EE} = {1652CEFA-8155-4588-8077-1399881C64AB}
+		{3BB46BC9-510D-45AB-85E4-AE62DACA46D3} = {45FCA4C7-82CB-47F1-926C-1B77484749C0}
+	EndGlobalSection
+EndGlobal

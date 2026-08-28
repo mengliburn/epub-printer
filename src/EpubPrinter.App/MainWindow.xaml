@@ -1,0 +1,218 @@
+<Window x:Class="EpubPrinter.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:EpubPrinter.App"
+        Icon="pack://application:,,,/EpubPrinter;component/Assets/app.ico"
+        Title="Epub Printer" Height="820" Width="1180"
+        MinHeight="560" MinWidth="900"
+        WindowStartupLocation="CenterScreen"
+        AllowDrop="True" Drop="OnFileDrop" DragOver="OnDragOver"
+        FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <Style TargetType="TextBlock" x:Key="SectionHeader">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,14,0,6" />
+            <Setter Property="Foreground" Value="#333" />
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Margin" Value="0,3,0,3" />
+        </Style>
+        <Style TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,3,0,3" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+
+        <ToolBar DockPanel.Dock="Top" ToolBarTray.IsLocked="True">
+            <Button Command="{Binding OpenCommand}" Padding="12,4" ToolTip="Open an .epub file (Ctrl+O)">
+                <TextBlock Text="Open epub..." />
+            </Button>
+            <Separator />
+            <Button Command="{Binding PreviewCommand}" Padding="12,4" ToolTip="Preview, choose a printer and print (Ctrl+Shift+P)">
+                <TextBlock Text="Print preview..." />
+            </Button>
+            <Button Command="{Binding PrintCommand}" Padding="12,4" ToolTip="Preview and print the selected chapters (Ctrl+P)">
+                <TextBlock Text="Print..." FontWeight="SemiBold" />
+            </Button>
+            <Button Command="{Binding ExportXpsCommand}" Padding="12,4" ToolTip="Save the selected chapters as an XPS document">
+                <TextBlock Text="Save as XPS..." />
+            </Button>
+            <Separator />
+            <Button Command="{Binding RefreshCommand}" Padding="12,4" ToolTip="Rebuild the preview">
+                <TextBlock Text="Refresh" />
+            </Button>
+            <Button Command="{Binding CloseCommand}" Padding="12,4">
+                <TextBlock Text="Close book" />
+            </Button>
+        </ToolBar>
+
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Text="{Binding Status}" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding SelectionSummary}" Margin="0,0,14,0" Foreground="#555" />
+                    <TextBlock Text="{Binding PageCountText}" FontWeight="SemiBold" />
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360" MinWidth="300" />
+                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0" Margin="12,10,6,10">
+
+                <StackPanel DockPanel.Dock="Top">
+                    <TextBlock Text="{Binding BookTitle}" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding BookSubtitle}" Foreground="#666" TextWrapping="Wrap" Margin="0,2,0,0" />
+
+                    <TextBlock Text="What to print" Style="{StaticResource SectionHeader}" />
+                    <RadioButton Content="All chapters" GroupName="Scope"
+                                 IsChecked="{Binding PrintAllChapters, Mode=TwoWay}"
+                                 IsEnabled="{Binding HasBook}" />
+                    <RadioButton Content="Chapter range" GroupName="Scope"
+                                 IsChecked="{Binding PrintChapterRange, Mode=TwoWay}"
+                                 IsEnabled="{Binding HasBook}" />
+
+                    <Grid Margin="20,6,0,0" IsEnabled="{Binding PrintChapterRange}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="From" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <ComboBox Grid.Column="1" x:Name="FromBox" ItemsSource="{Binding Chapters}" SelectedItem="{Binding FromChapterItem, Mode=TwoWay}" DisplayMemberPath="Display" />
+                        <TextBlock Grid.Column="2" Text="To" VerticalAlignment="Center" Margin="10,0,6,0" />
+                        <ComboBox Grid.Column="3" x:Name="ToBox" ItemsSource="{Binding Chapters}" SelectedItem="{Binding ToChapterItem, Mode=TwoWay}" DisplayMemberPath="Display" />
+                    </Grid>
+
+                    <TextBlock Text="Chapters" Style="{StaticResource SectionHeader}" />
+                </StackPanel>
+
+                <Expander DockPanel.Dock="Bottom" Header="Layout options" IsExpanded="False" Margin="0,10,0,0">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="260">
+                        <StackPanel Margin="4,8,4,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Font" VerticalAlignment="Center" Margin="0,0,8,4" />
+                                <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,4"
+                                          ItemsSource="{Binding FontFamilies}"
+                                          SelectedItem="{Binding Options.FontFamily, Mode=TwoWay}" IsEditable="False" />
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Size" VerticalAlignment="Center" Margin="0,0,8,4" />
+                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,4">
+                                    <Slider Width="150" Minimum="8" Maximum="24" TickFrequency="1" IsSnapToTickEnabled="True"
+                                            Value="{Binding Options.FontSize, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Options.FontSize, StringFormat={}{0:0} pt}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Paper" VerticalAlignment="Center" Margin="0,0,8,4" />
+                                <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4"
+                                          ItemsSource="{Binding PaperSizes}"
+                                          SelectedItem="{Binding Options.PaperSize, Mode=TwoWay}" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Margin" VerticalAlignment="Center" Margin="0,0,8,4" />
+                                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,4">
+                                    <Slider Width="150" Minimum="0.25" Maximum="2" TickFrequency="0.25" IsSnapToTickEnabled="True"
+                                            Value="{Binding Options.MarginInches, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Options.MarginInches, StringFormat={}{0:0.00} in}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Spacing" VerticalAlignment="Center" Margin="0,0,8,4" />
+                                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,4">
+                                    <Slider Width="150" Minimum="1" Maximum="2" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                            Value="{Binding Options.LineSpacing, Mode=TwoWay}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Options.LineSpacing, StringFormat={}{0:0.00}x}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+
+                            <CheckBox Content="Start each chapter on a new page" IsChecked="{Binding Options.StartChapterOnNewPage, Mode=TwoWay}" />
+                            <CheckBox Content="Print chapter titles" IsChecked="{Binding Options.IncludeChapterTitles, Mode=TwoWay}" />
+                            <CheckBox Content="Include images" IsChecked="{Binding Options.IncludeImages, Mode=TwoWay}" />
+                            <CheckBox Content="Justify text" IsChecked="{Binding Options.Justify, Mode=TwoWay}" />
+                            <CheckBox Content="Add a title page" IsChecked="{Binding Options.IncludeTitlePage, Mode=TwoWay}" />
+                            <CheckBox Content="Running header" IsChecked="{Binding Options.ShowRunningHeader, Mode=TwoWay}" />
+                            <CheckBox Content="Page numbers" IsChecked="{Binding Options.ShowPageNumbers, Mode=TwoWay}" />
+                            <CheckBox Content="High quality line breaking (slower)" IsChecked="{Binding Options.HighQualityLineBreaking, Mode=TwoWay}"
+                                      ToolTip="Optimal paragraph layout and hyphenation. Makes rendering roughly three times slower." />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Expander>
+
+                <ListBox x:Name="ChapterList" ItemsSource="{Binding Chapters}"
+                         SelectionMode="Extended"
+                         HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Use as range start" Click="OnUseAsStart" />
+                            <MenuItem Header="Use as range end" Click="OnUseAsEnd" />
+                            <Separator />
+                            <MenuItem Header="Print only this chapter" Click="OnOnlyThisChapter" />
+                            <MenuItem Header="Use highlighted chapters as the range" Click="OnUseSelectionAsRange" />
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,2">
+                                <TextBlock Text="{Binding Display}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#DDD" />
+
+            <Grid Grid.Column="2">
+                <Border Background="#F5F5F5">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Background="#FFF4CE" BorderBrush="#E8D48B" BorderThickness="0,0,0,1" Padding="10,6"
+                                Visibility="{Binding HasPreviewNotice, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding PreviewNotice}" TextWrapping="Wrap" Foreground="#5C4700" />
+                        </Border>
+                        <FlowDocumentPageViewer x:Name="PreviewViewer" Document="{Binding PreviewDocument}" MinZoom="25" Zoom="80" />
+                    </DockPanel>
+                </Border>
+
+                <TextBlock Text="Open an .epub file to see a preview here.&#10;You can also drag a book onto this window."
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextAlignment="Center" Foreground="#888" FontSize="15"
+                           Visibility="{Binding HasBook, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                <Border Background="#80FFFFFF" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Working..." HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontSize="16" Foreground="#333" />
+                </Border>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>
+
+
+
+
+
+
+

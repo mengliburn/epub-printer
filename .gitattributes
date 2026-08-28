@@ -1,0 +1,14 @@
+# Normalise line endings on commit, keep native ones in the working tree.
+* text=auto
+
+*.cs text diff=csharp
+*.csproj text
+*.sln text eol=crlf
+*.xaml text
+*.md text
+*.ps1 text eol=crlf
+
+*.ico binary
+*.png binary
+*.epub binary
+*.xps binary
