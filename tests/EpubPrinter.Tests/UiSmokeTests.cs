@@ -278,6 +278,193 @@ public sealed class UiSmokeTests : IDisposable
         window.Close();
     }
 
+    [UIFact]
+    public async Task Full_sheet_scan_selects_the_first_match_and_keeps_its_notice()
+    {
+        var epub = SampleEpubFactory.CreateCustom(PathFor("full-sheet-ui.epub"), 12, paragraphsPerChapter: 0);
+        var window = new MainWindow();
+        var vm = (MainViewModel)window.DataContext;
+        vm.PersistSettings = false;
+        vm.ComputePageCountEagerly = true;
+        vm.Options.PagesPerSheet = 2;
+        vm.Options.Duplex = DuplexMode.ShortEdge;
+        vm.Options.StartChapterOnNewPage = true;
+        vm.Options.IncludeTitlePage = false;
+        vm.OpenBook(epub);
+        vm.SetRange(3, 3);
+        window.Show();
+        await Task.Delay(50);
+
+        var button = (Button)window.FindName("FindFullSheetsButton")!;
+        Assert.Same(vm.FindFullSheetsCommand, button.Command);
+        Assert.True(button.Command.CanExecute(null));
+        button.Command.Execute(null);
+
+        Assert.True(vm.IsScanning);
+        Assert.False(button.Command.CanExecute(null));
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (vm.IsScanning && DateTime.UtcNow < deadline) await Task.Delay(50);
+
+        Assert.False(vm.IsScanning);
+        Assert.Equal(3, vm.FromChapter);
+        Assert.Equal(6, vm.ToChapter);
+        Assert.True(vm.PrintChapterRange);
+        Assert.True(vm.SheetFitFound);
+        Assert.Contains("fill every printed side", vm.SheetFitNotice);
+
+        vm.RefreshPreview();
+        Assert.True(vm.HasSheetFitNotice);
+        vm.Options.MarginInches = vm.Options.MarginInches == 0.25 ? 0.5 : 0.25;
+        Assert.False(vm.HasSheetFitNotice);
+
+        vm.CloseBook();
+        window.Close();
+    }
+
+    [UIFact]
+    public async Task Changing_the_range_cancels_stale_scans_and_allows_a_new_scan()
+    {
+        var epub = SampleEpubFactory.CreateCustom(PathFor("scan-cancel.epub"), 12, paragraphsPerChapter: 0);
+        var window = new MainWindow();
+        var vm = (MainViewModel)window.DataContext;
+        vm.PersistSettings = false;
+        vm.ComputePageCountEagerly = true;
+        vm.Options.PagesPerSheet = 2;
+        vm.Options.Duplex = DuplexMode.ShortEdge;
+        vm.Options.StartChapterOnNewPage = true;
+        vm.Options.IncludeTitlePage = false;
+        vm.OpenBook(epub);
+        vm.SetRange(1, 1);
+        vm.FindFullSheetRange();
+        Assert.True(vm.IsScanning);
+
+        vm.SetRange(5, 5);
+        Assert.False(vm.IsScanning);
+        Assert.False(vm.HasSheetFitNotice);
+        vm.FindFullSheetRange();
+
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (vm.IsScanning && DateTime.UtcNow < deadline) await Task.Delay(50);
+        await Task.Delay(200);
+        Assert.False(vm.IsScanning);
+        Assert.Equal(5, vm.FromChapter);
+        Assert.Equal(8, vm.ToChapter);
+        Assert.True(vm.SheetFitFound);
+        Assert.Contains("Chapters 5-8", vm.SheetFitNotice);
+
+        vm.FindFullSheetRange();
+        Assert.True(vm.IsScanning);
+        vm.Options.Duplex = DuplexMode.OneSided;
+        Assert.False(vm.IsScanning);
+        Assert.False(vm.HasSheetFitNotice);
+        vm.FindFullSheetRange();
+        deadline = DateTime.UtcNow.AddSeconds(30);
+        while (vm.IsScanning && DateTime.UtcNow < deadline) await Task.Delay(50);
+        await Task.Delay(200);
+        Assert.False(vm.IsScanning);
+        Assert.Equal(5, vm.FromChapter);
+        Assert.Equal(6, vm.ToChapter);
+        Assert.True(vm.SheetFitFound);
+
+        vm.FindFullSheetRange();
+        Assert.True(vm.IsScanning);
+        vm.CloseBook();
+        await Task.Delay(200);
+        Assert.False(vm.IsScanning);
+        Assert.False(vm.HasBook);
+        Assert.False(vm.HasSheetFitNotice);
+        window.Close();
+    }
+
+    [UIFact]
+    public async Task Full_sheet_scan_reports_no_match_without_changing_the_selection()
+    {
+        var epub = SampleEpubFactory.CreateCustom(PathFor("scan-no-fit.epub"), 3, paragraphsPerChapter: 0);
+        var window = new MainWindow();
+        var vm = (MainViewModel)window.DataContext;
+        vm.PersistSettings = false;
+        vm.ComputePageCountEagerly = true;
+        vm.Options.PagesPerSheet = 9;
+        vm.Options.Duplex = DuplexMode.ShortEdge;
+        vm.Options.StartChapterOnNewPage = true;
+        vm.Options.IncludeTitlePage = false;
+        vm.OpenBook(epub);
+        vm.SetRange(2, 2);
+        vm.FindFullSheetRange();
+
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (vm.IsScanning && DateTime.UtcNow < deadline) await Task.Delay(50);
+
+        Assert.False(vm.IsScanning);
+        Assert.Equal(2, vm.FromChapter);
+        Assert.Equal(2, vm.ToChapter);
+        Assert.False(vm.SheetFitFound);
+        Assert.Contains("Closest: Chapters 2-3", vm.SheetFitNotice);
+        Assert.Contains("16 blank page slots", vm.SheetFitNotice);
+        vm.CloseBook();
+        window.Close();
+    }
+
+    [UIFact]
+    public async Task Opening_another_book_cancels_a_pending_sheet_scan()
+    {
+        var first = SampleEpubFactory.CreateCustom(PathFor("scan-first.epub"), 12, paragraphsPerChapter: 0);
+        var second = SampleEpubFactory.CreateCustom(PathFor("scan-second.epub"), 3, paragraphsPerChapter: 0);
+        var window = new MainWindow();
+        var vm = (MainViewModel)window.DataContext;
+        vm.PersistSettings = false;
+        vm.ComputePageCountEagerly = true;
+        vm.Options.PagesPerSheet = 2;
+        vm.Options.Duplex = DuplexMode.ShortEdge;
+        vm.Options.StartChapterOnNewPage = true;
+        vm.Options.IncludeTitlePage = false;
+        vm.OpenBook(first);
+        vm.SetRange(1, 1);
+        vm.FindFullSheetRange();
+        Assert.True(vm.IsScanning);
+
+        vm.OpenBook(second);
+        await Task.Delay(200);
+
+        Assert.False(vm.IsScanning);
+        Assert.True(vm.HasBook);
+        Assert.Equal(3, vm.Chapters.Count);
+        Assert.True(vm.PrintAllChapters);
+        Assert.False(vm.HasSheetFitNotice);
+        vm.CloseBook();
+        window.Close();
+    }
+
+    [UIFact]
+    public async Task Print_preview_reports_blank_slots_and_clears_the_warning_after_layout_changes()
+    {
+        var epub = SampleEpubFactory.CreateCustom(PathFor("blank-preview.epub"), 1, paragraphsPerChapter: 0);
+        using var book = EpubReader.Open(epub);
+        var options = new PrintOptions { PagesPerSheet = 9, Duplex = DuplexMode.OneSided };
+        var window = new PrintWindow(book, book.Chapters, options, "Header", "job");
+        window.Show();
+
+        var blank = (TextBlock)window.FindName("BlankText")!;
+        var summary = (TextBlock)window.FindName("SummaryText")!;
+        var perSide = (ComboBox)window.FindName("PagesPerSheetBox")!;
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (blank.Visibility != Visibility.Visible && DateTime.UtcNow < deadline) await Task.Delay(50);
+
+        Assert.Equal(Visibility.Visible, blank.Visibility);
+        Assert.Contains("8 blank page slots", blank.Text);
+        Assert.Contains("9 per side", summary.Text);
+
+        perSide.SelectedItem = 1;
+        Assert.Equal(Visibility.Collapsed, blank.Visibility);
+        window.FlushPendingRender();
+        deadline = DateTime.UtcNow.AddSeconds(30);
+        while (summary.Text.Contains("9 per side") && DateTime.UtcNow < deadline) await Task.Delay(50);
+
+        Assert.DoesNotContain("9 per side", summary.Text);
+        Assert.Equal(Visibility.Collapsed, blank.Visibility);
+        window.Close();
+    }
+
     [StaFact]
     public void Opening_an_invalid_file_leaves_the_app_usable()
     {
@@ -312,9 +499,6 @@ public sealed class UiSmokeTests : IDisposable
         }
     }
 }
-
-
-
 
 
 

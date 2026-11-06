@@ -278,6 +278,24 @@ public static class PrintService
         /// <summary>Sheets of paper needed, taking double sided printing into account.</summary>
         public int SheetsOfPaper(DuplexMode duplex) =>
             duplex == DuplexMode.OneSided ? Sheets : (int)Math.Ceiling(Sheets / 2.0);
+
+        /// <summary>Empty document-page slots on the last side and any unprinted back.</summary>
+        public BlankSlots GetBlankSlots(int pagesPerSide, DuplexMode duplex)
+        {
+            if (pagesPerSide < 1) throw new ArgumentOutOfRangeException(nameof(pagesPerSide));
+            if (Pages < 0 || Sheets < 0) throw new InvalidOperationException("Page counts cannot be negative.");
+
+            var remainder = Pages % pagesPerSide;
+            var onLastSide = remainder == 0 ? 0 : pagesPerSide - remainder;
+            var blankSides = duplex != DuplexMode.OneSided && Sheets % 2 == 1 ? 1 : 0;
+            return new BlankSlots(onLastSide, blankSides, pagesPerSide);
+        }
+    }
+
+    public readonly record struct BlankSlots(int OnLastSide, int BlankSides, int PagesPerSide)
+    {
+        public int Total => OnLastSide + (BlankSides * PagesPerSide);
+        public bool Any => Total > 0;
     }
 
     /// <summary>Forces full pagination and returns the page and sheet counts.</summary>
@@ -361,6 +379,5 @@ public static class PrintService
         return modes;
     }
 }
-
 
 

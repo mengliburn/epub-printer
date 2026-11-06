@@ -96,6 +96,25 @@
                         <ComboBox Grid.Column="3" x:Name="ToBox" ItemsSource="{Binding Chapters}" SelectedItem="{Binding ToChapterItem, Mode=TwoWay}" DisplayMemberPath="Display" />
                     </Grid>
 
+                    <Button x:Name="FindFullSheetsButton" Content="Find a range with no blank pages"
+                            Margin="20,8,0,0" Padding="8,4" HorizontalAlignment="Left"
+                            Command="{Binding FindFullSheetsCommand}"
+                            ToolTip="Scan up to 10 chapters from the selected start using the current layout, pages per side and sides settings." />
+                    <TextBlock x:Name="SheetFitText" Text="{Binding SheetFitNotice}" TextWrapping="Wrap"
+                               Margin="20,6,0,0" FontSize="11"
+                               Visibility="{Binding HasSheetFitNotice, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#8A6D00" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SheetFitFound}" Value="True">
+                                        <Setter Property="Foreground" Value="#1B6B2F" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
                     <TextBlock Text="Chapters" Style="{StaticResource SectionHeader}" />
                 </StackPanel>
 
@@ -209,7 +228,6 @@
         </Grid>
     </DockPanel>
 </Window>
-
 
 
 

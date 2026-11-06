@@ -18,6 +18,8 @@
             <Border DockPanel.Dock="Bottom" Margin="0,14,0,0">
                 <StackPanel>
                     <TextBlock x:Name="SummaryText" Foreground="#555" TextWrapping="Wrap" Margin="0,0,0,10" />
+                    <TextBlock x:Name="BlankText" Foreground="#8A6D00" TextWrapping="Wrap"
+                               Margin="0,0,0,10" Visibility="Collapsed" />
                     <Button x:Name="PrintButton" Content="Print" Height="36" FontWeight="SemiBold" Click="OnPrint" />
                     <Button Content="Cancel" Height="30" Margin="0,8,0,0" Click="OnCancel" />
                 </StackPanel>
@@ -99,7 +101,6 @@
         </Grid>
     </Grid>
 </Window>
-
 
 
 

@@ -12,10 +12,15 @@ by chapter: either the whole book or a chapter range.
 - **Print all chapters or a range** - pick "All chapters", or "Chapter range" and choose the
   first and last chapter. Right-click the chapter list for shortcuts
   ("Use as range start/end", "Print only this chapter", "Use highlighted chapters as the range").
+- **Find a range with no blank pages** - scan up to 10 chapters from the selected start and
+  automatically select the first range that fills every printed sheet, using the current layout,
+  pages-per-side and one/two-sided settings. If none fits, the closest range is reported without
+  changing the selection. Changing print settings afterward can change the result.
 - **Its own print window with a real preview** - Windows' print dialog cannot preview WPF
   documents ("This app doesn't support print preview"), so Epub Printer has its own: printer,
   copies, paper, orientation, **sides**, **pages per side**, **print scale** and margins on the
-  left, the actual paginated pages on the right. The job goes straight to the selected queue.
+  left, the actual paginated pages on the right, and a warning for blank page slots. The job
+  goes straight to the selected queue.
 - **Double sided** - choose one sided, or double sided flipped on the long or the short edge.
   Only the modes the selected printer reports are offered. **Default: double sided, short edge.**
 - **Two (or more) pages per side** - 1, 2, 4, 6 or 9 document pages are composed onto each

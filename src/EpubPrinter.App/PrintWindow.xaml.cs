@@ -44,6 +44,7 @@ public partial class PrintWindow : Window
     private bool _ready;
     private bool _syncing;
     private bool _busy;
+    private bool _countsAreCurrent;
     private volatile bool _closed;
     private PrintService.PageCounts _counts;
     private List<DuplexMode> _duplexModes = new() { DuplexMode.OneSided };
@@ -177,6 +178,9 @@ public partial class PrintWindow : Window
     private void ScheduleRender()
     {
         if (!_ready || _syncing) return;
+        Interlocked.Increment(ref _renderVersion);
+        _countsAreCurrent = false;
+        BlankText.Visibility = Visibility.Collapsed;
         _debounce.Stop();
         _debounce.Start();
     }
@@ -193,6 +197,8 @@ public partial class PrintWindow : Window
         if (!_ready) return;
 
         var version = Interlocked.Increment(ref _renderVersion);
+        _countsAreCurrent = false;
+        BlankText.Visibility = Visibility.Collapsed;
         var options = _options.Clone();
         var pageSize = CurrentPageSize();
         SetBusy(true, "Rendering preview...");
@@ -249,6 +255,7 @@ public partial class PrintWindow : Window
             Viewer.Document = _preview.GetFixedDocumentSequence();
             _previewPath = path;
             _counts = counts;
+            _countsAreCurrent = true;
 
             UpdateSummary();
         }
@@ -262,7 +269,7 @@ public partial class PrintWindow : Window
     /// <summary>Describes what will come out of the printer, including sheets of paper.</summary>
     private void UpdateSummary()
     {
-        if (!_ready || _counts.Pages <= 0) return;
+        if (!_ready || !_countsAreCurrent || _counts.Pages <= 0) return;
 
         var parts = new List<string>
         {
@@ -280,6 +287,34 @@ public partial class PrintWindow : Window
         if (Copies > 1) parts.Add($"{Copies} copies");
 
         SummaryText.Text = string.Join(" - ", parts) + ".";
+
+        var blanks = DescribeBlankSlots(_counts.GetBlankSlots(_options.PagesPerSheet, _options.Duplex), Copies);
+        BlankText.Text = blanks ?? string.Empty;
+        BlankText.Visibility = blanks is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public static string? DescribeBlankSlots(PrintService.BlankSlots blanks, int copies)
+    {
+        if (!blanks.Any) return null;
+
+        var unit = blanks.PagesPerSide switch
+        {
+            1 => "page",
+            2 => "half page",
+            4 => "quarter page",
+            _ => "page slot"
+        };
+        var total = blanks.Total;
+        var totalText = $"{total} blank {unit}{(total == 1 ? string.Empty : "s")}" +
+                        (copies > 1 ? " per copy" : string.Empty);
+        var onBack = blanks.BlankSides * blanks.PagesPerSide;
+
+        if (blanks.OnLastSide == 0)
+            return $"{totalText}: the back of the last sheet stays empty.";
+        if (blanks.BlankSides == 0)
+            return $"{totalText} at the end of the last printed side.";
+        return $"{totalText}: {blanks.OnLastSide} at the end of the last printed side and " +
+               $"{onBack} on the back of the last sheet, which stays empty.";
     }
 
     private void OnPrint(object sender, RoutedEventArgs e)
@@ -467,7 +502,6 @@ public partial class PrintWindow : Window
         _previewPath = null;
     }
 }
-
 
 
 

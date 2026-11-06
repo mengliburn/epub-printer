@@ -36,13 +36,22 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private bool _isBusy;
     private int _pageCount;
     private string _previewNotice = string.Empty;
+    private string _sheetFitNotice = string.Empty;
+    private bool _sheetFitFound;
+    private bool _isScanning;
     private CancellationTokenSource? _pageCountCancellation;
     private int _pageCountVersion;
+    private CancellationTokenSource? _scanCancellation;
+    private int _scanVersion;
 
     public MainViewModel()
     {
         Options = PrintOptions.Load(SettingsPath);
-        Options.PropertyChanged += (_, _) => SchedulePreview();
+        Options.PropertyChanged += (_, _) =>
+        {
+            InvalidateSheetFit();
+            SchedulePreview();
+        };
 
         _previewDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _previewDebounce.Tick += (_, _) =>
@@ -58,6 +67,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ExportXpsCommand = new RelayCommand(ExportXps, HasSelection);
         RefreshCommand = new RelayCommand(RefreshPreview, HasSelection);
         SelectAllCommand = new RelayCommand(() => PrintAllChapters = true, () => _book is not null);
+        FindFullSheetsCommand = new RelayCommand(FindFullSheetRange, () => _book is not null && !IsScanning);
     }
 
     public ObservableCollection<EpubChapter> Chapters { get; } = new();
@@ -78,6 +88,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public RelayCommand ExportXpsCommand { get; }
     public RelayCommand RefreshCommand { get; }
     public RelayCommand SelectAllCommand { get; }
+    public RelayCommand FindFullSheetsCommand { get; }
 
     public string BookTitle
     {
@@ -99,6 +110,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         set
         {
             if (!Set(ref _printAllChapters, value)) return;
+            InvalidateSheetFit();
             OnPropertyChanged(nameof(PrintChapterRange));
             OnPropertyChanged(nameof(SelectionSummary));
             SchedulePreview();
@@ -117,6 +129,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         set
         {
             if (!Set(ref _fromChapter, Clamp(value))) return;
+            InvalidateSheetFit();
             if (_toChapter < _fromChapter) ToChapter = _fromChapter;
             OnPropertyChanged(nameof(FromChapterItem));
             OnPropertyChanged(nameof(SelectionSummary));
@@ -130,6 +143,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         set
         {
             if (!Set(ref _toChapter, Clamp(value))) return;
+            InvalidateSheetFit();
             if (_fromChapter > _toChapter) FromChapter = _toChapter;
             OnPropertyChanged(nameof(ToChapterItem));
             OnPropertyChanged(nameof(SelectionSummary));
@@ -164,6 +178,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public void SetRange(int from, int to)
     {
         if (_book is null) return;
+        InvalidateSheetFit();
         _fromChapter = Clamp(Math.Min(from, to));
         _toChapter = Clamp(Math.Max(from, to));
         _printAllChapters = false;
@@ -225,6 +240,32 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public bool HasPreviewNotice => _previewNotice.Length > 0;
 
+    public bool IsScanning
+    {
+        get => _isScanning;
+        private set
+        {
+            if (Set(ref _isScanning, value)) RelayCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    public string SheetFitNotice
+    {
+        get => _sheetFitNotice;
+        private set
+        {
+            if (Set(ref _sheetFitNotice, value)) OnPropertyChanged(nameof(HasSheetFitNotice));
+        }
+    }
+
+    public bool HasSheetFitNotice => _sheetFitNotice.Length > 0;
+
+    public bool SheetFitFound
+    {
+        get => _sheetFitFound;
+        private set => Set(ref _sheetFitFound, value);
+    }
+
     public string SelectionSummary
     {
         get
@@ -267,6 +308,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             IsBusy = true;
             var book = EpubReader.Open(path);
+            CancelPageCount();
+            InvalidateSheetFit();
             _book?.Dispose();
             _book = book;
 
@@ -310,6 +353,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public void CloseBook()
     {
         CancelPageCount();
+        InvalidateSheetFit();
         _book?.Dispose();
         _book = null;
         Chapters.Clear();
@@ -392,6 +436,120 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>Finds the first full-sheet range using the current layout and starting chapter.</summary>
+    public void FindFullSheetRange()
+    {
+        var book = _book;
+        if (book is null || IsScanning) return;
+
+        CancelScan();
+        var start = _printAllChapters ? 1 : _fromChapter;
+        var options = Options.Clone();
+        var cancellation = new CancellationTokenSource();
+        _scanCancellation = cancellation;
+        var token = cancellation.Token;
+        var version = Volatile.Read(ref _scanVersion);
+
+        IsScanning = true;
+        SheetFitFound = false;
+        SheetFitNotice = $"Scanning up to {FullSheetScanner.DefaultLookAhead} chapters from chapter {start}...";
+
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var outcome = FullSheetScanner.Scan(book, start, options, cancellationToken: token);
+                token.ThrowIfCancellationRequested();
+
+                PostToUi(() =>
+                {
+                    if (Volatile.Read(ref _scanVersion) != version || _book != book) return;
+                    FinishScan();
+                    ApplyScanOutcome(outcome, options);
+                });
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                // A changed selection, layout, or book superseded the scan.
+            }
+            catch (Exception ex)
+            {
+                PostToUi(() =>
+                {
+                    if (Volatile.Read(ref _scanVersion) != version || _book != book) return;
+                    FinishScan();
+                    SheetFitFound = false;
+                    SheetFitNotice = $"The scan failed: {ex.Message}";
+                    Status = SheetFitNotice;
+                });
+            }
+            finally
+            {
+                Dispatcher.CurrentDispatcher.InvokeShutdown();
+            }
+        })
+        {
+            IsBackground = true,
+            Priority = ThreadPriority.BelowNormal,
+            Name = "EpubPrinter sheet scanner"
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+    }
+
+    private void ApplyScanOutcome(FullSheetScanner.ScanOutcome outcome, PrintOptions options)
+    {
+        if (outcome.Full is { } full)
+        {
+            SetRange(outcome.StartChapter, full.LastChapter);
+            var range = DescribeChapterRange(outcome.StartChapter, full.LastChapter);
+            var verb = outcome.StartChapter == full.LastChapter ? "fills" : "fill";
+            var paper = new PrintService.PageCounts(full.Pages, full.Sides).SheetsOfPaper(options.Duplex);
+            SheetFitNotice = $"{range} {verb} every printed side: {full.Pages} pages on " +
+                             $"{full.Sides} side(s), {paper} sheet(s) of paper.";
+            SheetFitFound = true;
+        }
+        else if (outcome.Closest is { } closest)
+        {
+            var blanks = PrintWindow.DescribeBlankSlots(closest.Blanks, 1);
+            SheetFitNotice = $"No full-sheet range found in {outcome.Examined} chapter(s) from chapter " +
+                             $"{outcome.StartChapter}. Closest: {DescribeChapterRange(outcome.StartChapter, closest.LastChapter)} " +
+                             $"with {blanks}";
+            SheetFitFound = false;
+        }
+        else
+        {
+            SheetFitNotice = "There are no chapters to scan.";
+            SheetFitFound = false;
+        }
+
+        Status = SheetFitNotice;
+    }
+
+    private static string DescribeChapterRange(int from, int to) =>
+        from == to ? $"Chapter {from}" : $"Chapters {from}-{to}";
+
+    private void FinishScan()
+    {
+        _scanCancellation?.Dispose();
+        _scanCancellation = null;
+        IsScanning = false;
+    }
+
+    private void CancelScan()
+    {
+        Interlocked.Increment(ref _scanVersion);
+        _scanCancellation?.Cancel();
+        FinishScan();
+    }
+
+    private void InvalidateSheetFit()
+    {
+        CancelScan();
+        SheetFitFound = false;
+        SheetFitNotice = string.Empty;
+    }
+
     private void CancelPageCount()
     {
         Interlocked.Increment(ref _pageCountVersion);
@@ -471,6 +629,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public void Print()
     {
         if (_book is null) return;
+        if (IsScanning) InvalidateSheetFit();
         var selection = GetSelectedChapters();
         if (selection.Count == 0) return;
 
@@ -516,6 +675,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public void ExportXps()
     {
         if (_book is null) return;
+        if (IsScanning) InvalidateSheetFit();
         var selection = GetSelectedChapters();
         if (selection.Count == 0) return;
 
@@ -593,6 +753,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         _previewDebounce.Stop();
         CancelPageCount();
+        InvalidateSheetFit();
         if (PersistSettings)
         {
             try
@@ -621,7 +782,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private void OnPropertyChanged(string? name) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
-
 
 
 
